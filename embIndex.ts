@@ -106,9 +106,21 @@ export class EmbeddingIndex {
     }
   }
 
+  private async ensureParentDir(): Promise<void> {
+    const i = this.cachePath.lastIndexOf("/");
+    if (i <= 0) return;
+    const dir = this.cachePath.slice(0, i);
+    try {
+      if (!(await this.app.vault.adapter.exists(dir))) await this.app.vault.adapter.mkdir(dir);
+    } catch {
+      /* уже существует или гонка */
+    }
+  }
+
   async save(): Promise<void> {
     if (!this.dirty) return;
     try {
+      await this.ensureParentDir();
       await this.app.vault.adapter.writeBinary(this.cachePath, encode(this.map));
       this.dirty = false;
     } catch (e) {
