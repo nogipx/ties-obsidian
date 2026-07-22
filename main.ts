@@ -50,7 +50,7 @@ const DEFAULT_SETTINGS: TiesSettings = {
   createdFormat: "YYYY-MM-DDTHH:mm",
   autoEmbed: true,
   embeddingsPath: "",
-  ollamaUrl: "http://localhost:11434",
+  ollamaUrl: "http://127.0.0.1:11434",
   ollamaModel: "bge-m3",
 };
 

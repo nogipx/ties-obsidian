@@ -18,7 +18,9 @@ export function stripFrontmatter(text: string): string {
 }
 
 export async function embed(text: string, cfg: EmbedConfig): Promise<Float32Array> {
-  const base = cfg.url.replace(/\/+$/, "");
+  // localhost у Electron может резолвиться в IPv6 (::1), а Ollama по умолчанию
+  // слушает только IPv4 (127.0.0.1) -> «недоступен». Нормализуем на IPv4.
+  const base = cfg.url.replace(/\/+$/, "").replace("://localhost", "://127.0.0.1");
   const res = await requestUrl({
     url: `${base}/api/embeddings`,
     method: "POST",
