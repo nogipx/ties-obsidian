@@ -335,10 +335,11 @@ export default class TiesPlugin extends Plugin {
   }
 
   embeddingsCachePath(): string {
+    const file = "ties-embeddings.bin";
     const dir = this.settings.embeddingsPath?.trim();
-    if (!dir) return `${this.manifest.dir}/embeddings.bin`;
+    if (!dir) return `${this.manifest.dir}/${file}`;
     const clean = dir.replace(/^\.\//, "").replace(/\/+$/, ""); // убрать ./ и хвостовой /
-    return `${clean}/embeddings.bin`;
+    return `${clean}/${file}`;
   }
 
   openConnectionsModal(file: TFile | null = this.app.workspace.getActiveFile()): void {
@@ -778,7 +779,7 @@ class TiesSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Папка кэша эмбеддингов")
       .setDesc(
-        "Папка (относительно корня вульта), где хранить embeddings.bin. Пусто — рядом с плагином. Для синхронизации между устройствами укажи синхронизируемую папку. Применяется при потере фокуса поля."
+        "Папка (относительно корня вульта), где хранить ties-embeddings.bin. Пусто — рядом с плагином. Для синхронизации между устройствами укажи синхронизируемую папку. Применяется при потере фокуса поля."
       )
       .addText((t) => {
         t.setPlaceholder(this.plugin.manifest.dir ?? "")
