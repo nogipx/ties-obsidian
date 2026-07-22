@@ -773,39 +773,38 @@ class TiesSettingTab extends PluginSettingTab {
         })
       );
 
-    new Setting(containerEl).setName("Похожие (Ollama)").setHeading();
-
-    new Setting(containerEl).setName("Ollama URL").addText((t) =>
-      t.setValue(this.plugin.settings.ollamaUrl).onChange(async (v) => {
-        this.plugin.settings.ollamaUrl = v.trim();
-        await this.plugin.saveSettings();
-      })
-    );
-
+    const ro = this.plugin.settings.readOnlyEmbeddings;
     new Setting(containerEl)
-      .setName("Модель эмбеддингов")
-      .setDesc("Например bge-m3 (сначала `ollama pull bge-m3`).")
-      .addText((t) =>
-        t.setValue(this.plugin.settings.ollamaModel).onChange(async (v) => {
-          this.plugin.settings.ollamaModel = v.trim();
-          await this.plugin.saveSettings();
-        })
-      );
+      .setName("Похожие по смыслу")
+      .setDesc(
+        ro
+          ? "Режим потребителя: эмбеддинги считает сервер, устройство только читает кэш."
+          : "Режим локального подсчёта: эмбеддинги считает Ollama на этом устройстве."
+      )
+      .setHeading();
 
+    // Переключатель режима — общий
     new Setting(containerEl)
-      .setName("Обновлять похожие при правке")
-      .setDesc("Перечитывать эмбеддинг изменённой заметки автоматически (нужен запущенный Ollama). Индекс должен быть построен хотя бы раз.")
+      .setName("Кэш только для чтения")
+      .setDesc(
+        "Плагин только читает синхронизированный ties-embeddings.bin (эмбеддинги считает сервер-индексер). Включи на устройствах-потребителях; выключи там, где считаешь локально."
+      )
       .addToggle((t) =>
-        t.setValue(this.plugin.settings.autoEmbed).onChange(async (v) => {
-          this.plugin.settings.autoEmbed = v;
+        t.setValue(ro).onChange(async (v) => {
+          this.plugin.settings.readOnlyEmbeddings = v;
           await this.plugin.saveSettings();
+          if (v) await this.plugin.deployIndexer();
+          this.display();
         })
       );
 
+    // Папка кэша — нужна в обоих режимах
     new Setting(containerEl)
       .setName("Папка кэша эмбеддингов")
       .setDesc(
-        "Папка (относительно корня вульта), где хранить ties-embeddings.bin. Пусто — рядом с плагином. Для синхронизации между устройствами укажи синхронизируемую папку. Применяется при потере фокуса поля."
+        ro
+          ? "Папка, где лежит синхронизированный ties-embeddings.bin (относительно корня вульта)."
+          : "Папка, где хранить ties-embeddings.bin (относительно корня вульта). Пусто — рядом с плагином. Для синхронизации укажи синхронизируемую папку. Применяется при потере фокуса поля."
       )
       .addText((t) => {
         t.setPlaceholder(this.plugin.manifest.dir ?? "")
@@ -819,26 +818,53 @@ class TiesSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl)
-      .setName("Кэш только для чтения")
-      .setDesc(
-        "Плагин только читает синхронизированный ties-embeddings.bin и сам его не пишет (эмбеддинги считает сервер-индексер). Отключает авто-обновление и переиндексацию на этом устройстве. При включении раскладывает индексер в папку кэша."
-      )
-      .addToggle((t) =>
-        t.setValue(this.plugin.settings.readOnlyEmbeddings).onChange(async (v) => {
-          this.plugin.settings.readOnlyEmbeddings = v;
+    if (ro) {
+      // Потребитель: считает сервер
+      new Setting(containerEl)
+        .setName("Индексер для сервера")
+        .setDesc(
+          "Эмбеддинги считает сервер этим индексером. Кнопка кладёт ties-indexer.mjs в папку кэша — через синхронизацию он попадёт на сервер, где: node ties-indexer.mjs --watch"
+        )
+        .addButton((b) =>
+          b.setButtonText("Разложить индексер").onClick(() => this.plugin.deployIndexer())
+        );
+    } else {
+      // Писатель: локальный Ollama
+      new Setting(containerEl).setName("Ollama URL").addText((t) =>
+        t.setValue(this.plugin.settings.ollamaUrl).onChange(async (v) => {
+          this.plugin.settings.ollamaUrl = v.trim();
           await this.plugin.saveSettings();
-          if (v) await this.plugin.deployIndexer();
         })
       );
 
-    new Setting(containerEl)
-      .setName("Индексер для сервера")
-      .setDesc(
-        "Разложить standalone-индексер (ties-indexer.mjs) в папку кэша. Через синхронизацию он попадёт на сервер, где: node ties-indexer.mjs --watch"
-      )
-      .addButton((b) =>
-        b.setButtonText("Разложить индексер").onClick(() => this.plugin.deployIndexer())
-      );
+      new Setting(containerEl)
+        .setName("Модель эмбеддингов")
+        .setDesc("Например bge-m3 (сначала `ollama pull bge-m3`).")
+        .addText((t) =>
+          t.setValue(this.plugin.settings.ollamaModel).onChange(async (v) => {
+            this.plugin.settings.ollamaModel = v.trim();
+            await this.plugin.saveSettings();
+          })
+        );
+
+      new Setting(containerEl)
+        .setName("Обновлять похожие при правке")
+        .setDesc("Перечитывать эмбеддинг изменённой заметки автоматически (нужен запущенный Ollama). Индекс должен быть построен хотя бы раз.")
+        .addToggle((t) =>
+          t.setValue(this.plugin.settings.autoEmbed).onChange(async (v) => {
+            this.plugin.settings.autoEmbed = v;
+            await this.plugin.saveSettings();
+          })
+        );
+
+      new Setting(containerEl)
+        .setName("Индексер для сервера (опционально)")
+        .setDesc(
+          "Разложить standalone-индексер в папку кэша, если хочешь перенести подсчёт на сервер. Тогда на устройствах включи «Кэш только для чтения»."
+        )
+        .addButton((b) =>
+          b.setButtonText("Разложить индексер").onClick(() => this.plugin.deployIndexer())
+        );
+    }
   }
 }
