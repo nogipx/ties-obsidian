@@ -1,9 +1,10 @@
 {
-  "id": "zk-connectivity",
+  "id": "ties",
   "name": "Ties",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "minAppVersion": "1.12.0",
   "description": "Ты решаешь связь — плагин делает механику: подсказывает похожие по смыслу заметки, пишет типизированную связь во frontmatter и показывает связи заметки (у MOC — участников и орбиту).",
   "author": "nogipx",
+  "authorUrl": "https://github.com/nogipx",
   "isDesktopOnly": false
 }

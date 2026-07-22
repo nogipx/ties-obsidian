@@ -1,0 +1,14 @@
+# build output
+main.js
+*.js.map
+
+# deps
+node_modules/
+
+# vault-specific runtime data (created by Obsidian in the plugin folder)
+data.json
+embeddings.json
+.hotreload
+
+# os
+.DS_Store
