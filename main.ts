@@ -781,7 +781,7 @@ class TiesSettingTab extends PluginSettingTab {
         "Папка (относительно корня вульта), где хранить embeddings.bin. Пусто — рядом с плагином. Для синхронизации между устройствами укажи синхронизируемую папку. Применяется при потере фокуса поля."
       )
       .addText((t) => {
-        t.setPlaceholder(this.plugin.manifest.dir)
+        t.setPlaceholder(this.plugin.manifest.dir ?? "")
           .setValue(this.plugin.settings.embeddingsPath)
           .onChange(async (v) => {
             this.plugin.settings.embeddingsPath = v.trim();
