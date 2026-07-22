@@ -1,10 +1,10 @@
 import { App, TFile } from "obsidian";
 import { embed, stripFrontmatter, cosine, EmbedConfig } from "./embeddings";
 
-interface StoredEntry {
-  hash: string; // хэш входного текста (basename + тело)
-  model: string; // модель, которой посчитан вектор
-  vector: number[];
+interface Entry {
+  hash: string;
+  model: string;
+  vector: Float32Array;
 }
 
 // Быстрый строковый хэш (FNV-1a, 32 бита) — для ключа кэша, не крипто.
@@ -17,13 +17,72 @@ function hashStr(s: string): string {
   return (h >>> 0).toString(16);
 }
 
-// Индекс эмбеддингов заметок с кэшем на диск.
+// Бинарный формат кэша (little-endian):
+//   "TIES" | ver:u8 | count:u32
+//   для каждой записи: pathLen:u16, path | hashLen:u8, hash | modelLen:u8, model | dim:u16 | dim*f32
+const MAGIC = [0x54, 0x49, 0x45, 0x53]; // "TIES"
+
+function encode(map: Map<string, Entry>): ArrayBuffer {
+  const enc = new TextEncoder();
+  const rows: Array<{ path: Uint8Array; hash: Uint8Array; model: Uint8Array; vec: Float32Array }> = [];
+  let size = 4 + 1 + 4;
+  for (const [p, e] of map) {
+    const path = enc.encode(p);
+    const hash = enc.encode(e.hash);
+    const model = enc.encode(e.model);
+    size += 2 + path.length + 1 + hash.length + 1 + model.length + 2 + e.vector.length * 4;
+    rows.push({ path, hash, model, vec: e.vector });
+  }
+  const buf = new ArrayBuffer(size);
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  let o = 0;
+  for (const b of MAGIC) u8[o++] = b;
+  dv.setUint8(o, 1); o += 1;
+  dv.setUint32(o, rows.length, true); o += 4;
+  for (const r of rows) {
+    dv.setUint16(o, r.path.length, true); o += 2; u8.set(r.path, o); o += r.path.length;
+    dv.setUint8(o, r.hash.length); o += 1; u8.set(r.hash, o); o += r.hash.length;
+    dv.setUint8(o, r.model.length); o += 1; u8.set(r.model, o); o += r.model.length;
+    dv.setUint16(o, r.vec.length, true); o += 2;
+    for (let i = 0; i < r.vec.length; i++) { dv.setFloat32(o, r.vec[i], true); o += 4; }
+  }
+  return buf;
+}
+
+function decode(buf: ArrayBuffer): Map<string, Entry> {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  const dec = new TextDecoder();
+  if (u8[0] !== MAGIC[0] || u8[1] !== MAGIC[1] || u8[2] !== MAGIC[2] || u8[3] !== MAGIC[3]) {
+    throw new Error("bad magic");
+  }
+  let o = 4;
+  o += 1; // version
+  const count = dv.getUint32(o, true); o += 4;
+  const map = new Map<string, Entry>();
+  for (let n = 0; n < count; n++) {
+    const pl = dv.getUint16(o, true); o += 2;
+    const path = dec.decode(u8.subarray(o, o + pl)); o += pl;
+    const hl = dv.getUint8(o); o += 1;
+    const hash = dec.decode(u8.subarray(o, o + hl)); o += hl;
+    const ml = dv.getUint8(o); o += 1;
+    const model = dec.decode(u8.subarray(o, o + ml)); o += ml;
+    const dim = dv.getUint16(o, true); o += 2;
+    const vector = new Float32Array(dim);
+    for (let i = 0; i < dim; i++) { vector[i] = dv.getFloat32(o, true); o += 4; }
+    map.set(path, { hash, model, vector });
+  }
+  return map;
+}
+
+// Индекс эмбеддингов заметок с бинарным кэшем на диск.
 // Инвалидация по хэшу содержимого (переносимо между устройствами) + метка модели.
 export class EmbeddingIndex {
   private app: App;
   private cachePath: string;
   private cfg: () => EmbedConfig;
-  private map = new Map<string, { hash: string; model: string; vector: Float32Array }>();
+  private map = new Map<string, Entry>();
   private dirty = false;
 
   constructor(app: App, cachePath: string, cfg: () => EmbedConfig) {
@@ -39,15 +98,8 @@ export class EmbeddingIndex {
   async load(): Promise<void> {
     try {
       if (await this.app.vault.adapter.exists(this.cachePath)) {
-        const raw = await this.app.vault.adapter.read(this.cachePath);
-        const obj = JSON.parse(raw) as Record<string, StoredEntry>;
-        for (const [p, e] of Object.entries(obj)) {
-          this.map.set(p, {
-            hash: e.hash ?? "",
-            model: e.model ?? "",
-            vector: Float32Array.from(e.vector),
-          });
-        }
+        const buf = await this.app.vault.adapter.readBinary(this.cachePath);
+        this.map = decode(buf);
       }
     } catch (e) {
       console.error("[ties] emb cache load failed", e);
@@ -56,15 +108,25 @@ export class EmbeddingIndex {
 
   async save(): Promise<void> {
     if (!this.dirty) return;
-    const obj: Record<string, StoredEntry> = {};
-    for (const [p, e] of this.map) {
-      obj[p] = { hash: e.hash, model: e.model, vector: Array.from(e.vector) };
-    }
     try {
-      await this.app.vault.adapter.write(this.cachePath, JSON.stringify(obj));
+      await this.app.vault.adapter.writeBinary(this.cachePath, encode(this.map));
       this.dirty = false;
     } catch (e) {
       console.error("[ties] emb cache save failed", e);
+    }
+  }
+
+  // Перенести кэш в другой путь (сохранить туда, старый файл удалить).
+  async relocate(newPath: string): Promise<void> {
+    if (!newPath || newPath === this.cachePath) return;
+    const old = this.cachePath;
+    this.cachePath = newPath;
+    this.dirty = true;
+    await this.save();
+    try {
+      if (await this.app.vault.adapter.exists(old)) await this.app.vault.adapter.remove(old);
+    } catch {
+      /* старый файл мог отсутствовать */
     }
   }
 
@@ -123,7 +185,7 @@ export class EmbeddingIndex {
     const scored: Array<{ path: string; score: number }> = [];
     for (const [p, e] of this.map) {
       if (p === excludePath) continue;
-      if (e.vector.length !== query.length) continue; // другая модель/размерность — пропускаем
+      if (e.vector.length !== query.length) continue; // другая модель/размерность
       scored.push({ path: p, score: cosine(query, e.vector) });
     }
     scored.sort((a, b) => b.score - a.score);

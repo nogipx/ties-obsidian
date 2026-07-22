@@ -8,6 +8,8 @@ node_modules/
 # vault-specific runtime data (created by Obsidian in the plugin folder)
 data.json
 embeddings.json
+embeddings.bin
+*.bin
 .hotreload
 
 # os

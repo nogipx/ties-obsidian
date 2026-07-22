@@ -35,6 +35,7 @@ interface TiesSettings {
   createdProperty: string;
   createdFormat: string;
   autoEmbed: boolean;
+  embeddingsPath: string;
   ollamaUrl: string;
   ollamaModel: string;
 }
@@ -48,6 +49,7 @@ const DEFAULT_SETTINGS: TiesSettings = {
   createdProperty: "created",
   createdFormat: "YYYY-MM-DDTHH:mm",
   autoEmbed: true,
+  embeddingsPath: "",
   ollamaUrl: "http://localhost:11434",
   ollamaModel: "bge-m3",
 };
@@ -72,7 +74,7 @@ export default class TiesPlugin extends Plugin {
 
     this.embIndex = new EmbeddingIndex(
       this.app,
-      `${this.manifest.dir}/embeddings.json`,
+      this.embeddingsCachePath(),
       () => ({ url: this.settings.ollamaUrl, model: this.settings.ollamaModel })
     );
     this.app.workspace.onLayoutReady(() => this.embIndex.load());
@@ -330,6 +332,11 @@ export default class TiesPlugin extends Plugin {
       await leaf.setViewState({ type: VIEW_TYPE_TIES, active: true });
     }
     this.app.workspace.revealLeaf(leaf);
+  }
+
+  embeddingsCachePath(): string {
+    const p = this.settings.embeddingsPath?.trim();
+    return p || `${this.manifest.dir}/embeddings.bin`;
   }
 
   openConnectionsModal(file: TFile | null = this.app.workspace.getActiveFile()): void {
@@ -765,5 +772,22 @@ class TiesSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         })
       );
+
+    new Setting(containerEl)
+      .setName("Путь к кэшу эмбеддингов")
+      .setDesc(
+        "Куда сохранять кэш (относительно корня вульта). Пусто — рядом с плагином. Для синхронизации между устройствами положи в синхронизируемую папку; бинарный .bin дружелюбен к дельта-синку (CDC). Меняется при потере фокуса поля."
+      )
+      .addText((t) => {
+        t.setPlaceholder(`${this.plugin.manifest.dir}/embeddings.bin`)
+          .setValue(this.plugin.settings.embeddingsPath)
+          .onChange(async (v) => {
+            this.plugin.settings.embeddingsPath = v.trim();
+            await this.plugin.saveSettings();
+          });
+        t.inputEl.addEventListener("blur", async () => {
+          await this.plugin.embIndex.relocate(this.plugin.embeddingsCachePath());
+        });
+      });
   }
 }
