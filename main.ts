@@ -18,7 +18,7 @@ import { DEFAULT_REL_TYPES, isSystemType, normalizeTypes, RelType } from "./type
 import { TypesModal } from "./typesModal";
 import { embed, stripFrontmatter } from "./embeddings";
 import { EmbeddingIndex } from "./embIndex";
-import { computeConnections, ConnectionsView, VIEW_TYPE_ZK } from "./connectionsView";
+import { computeConnections, ConnectionsView, VIEW_TYPE_TIES } from "./connectionsView";
 import { ConnectionsModal } from "./connectionsModal";
 import { TiesBlock } from "./tiesBlock";
 import { isMoc, pathToMoc } from "./moc";
@@ -26,7 +26,7 @@ import { buildGraph, kShortestPaths, personalizedPageRank, buildTree } from "./g
 import { PathsModal, NeighborhoodModal, TreeModal } from "./graphModals";
 import { HelpModal } from "./helpModal";
 
-interface ZKSettings {
+interface TiesSettings {
   relationTypes: RelType[];
   includeBodyLinks: boolean;
   showButton: boolean;
@@ -39,7 +39,7 @@ interface ZKSettings {
   ollamaModel: string;
 }
 
-const DEFAULT_SETTINGS: ZKSettings = {
+const DEFAULT_SETTINGS: TiesSettings = {
   relationTypes: DEFAULT_REL_TYPES,
   includeBodyLinks: false,
   showButton: true,
@@ -59,8 +59,8 @@ function mergeUnique(a: unknown, b: unknown): string[] {
   return [...new Set([...toList(a), ...toList(b)])];
 }
 
-export default class ZKConnectivityPlugin extends Plugin {
-  settings: ZKSettings;
+export default class TiesPlugin extends Plugin {
+  settings: TiesSettings;
   embIndex: EmbeddingIndex;
   private actionViews = new WeakSet<MarkdownView>();
   private actionEls: HTMLElement[] = [];
@@ -101,7 +101,7 @@ export default class ZKConnectivityPlugin extends Plugin {
 
     // Боковая панель (опционально)
     this.registerView(
-      VIEW_TYPE_ZK,
+      VIEW_TYPE_TIES,
       (leaf) => new ConnectionsView(leaf, () => this.settings.includeBodyLinks)
     );
 
@@ -201,7 +201,7 @@ export default class ZKConnectivityPlugin extends Plugin {
           });
           notice.setMessage(`Эмбеддинги готовы ✓ (${this.embIndex.size()})`);
         } catch (e) {
-          console.error("[zk] reindex error", e);
+          console.error("[ties] reindex error", e);
           notice.setMessage(`Ошибка индексации: ${e instanceof Error ? e.message : String(e)}`);
         }
         setTimeout(() => notice.hide(), 3000);
@@ -226,10 +226,10 @@ export default class ZKConnectivityPlugin extends Plugin {
             model: this.settings.ollamaModel,
           });
           const dt = Math.round(performance.now() - t0);
-          console.log("[zk] ollama embed dim", v.length, dt + "ms");
+          console.log("[ties] ollama embed dim", v.length, dt + "ms");
           new Notice(`Ollama ок: dim=${v.length}, ${dt}ms`);
         } catch (e) {
-          console.error("[zk] ollama error", e);
+          console.error("[ties] ollama error", e);
           new Notice(
             `Ollama ошибка: ${e instanceof Error ? e.message : String(e)}. Запущен ли Ollama и есть ли модель «${this.settings.ollamaModel}»?`
           );
@@ -310,24 +310,24 @@ export default class ZKConnectivityPlugin extends Plugin {
       callback: () => new HelpModal(this.app).open(),
     });
 
-    this.addSettingTab(new ZKSettingTab(this.app, this));
-    console.log("[zk-connectivity] loaded");
+    this.addSettingTab(new TiesSettingTab(this.app, this));
+    console.log("[ties] loaded");
   }
 
   onunload() {
     void this.embIndex.save();
     this.removeActions();
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_ZK);
-    console.log("[zk-connectivity] unloaded");
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_TIES);
+    console.log("[ties] unloaded");
   }
 
   async activateView(): Promise<void> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_ZK);
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIES);
     let leaf: WorkspaceLeaf | null = existing[0] ?? null;
     if (!leaf) {
       leaf = this.app.workspace.getRightLeaf(false);
       if (!leaf) return;
-      await leaf.setViewState({ type: VIEW_TYPE_ZK, active: true });
+      await leaf.setViewState({ type: VIEW_TYPE_TIES, active: true });
     }
     this.app.workspace.revealLeaf(leaf);
   }
@@ -383,7 +383,7 @@ export default class ZKConnectivityPlugin extends Plugin {
         scored.sort((a, b) => (b.score ?? -2) - (a.score ?? -2));
         void this.embIndex.save();
       } catch (e) {
-        console.error("[zk] similarity unavailable", e);
+        console.error("[ties] similarity unavailable", e);
         new Notice("Ollama недоступен — обычный поиск");
       }
     }
@@ -468,7 +468,7 @@ export default class ZKConnectivityPlugin extends Plugin {
         }
       });
     } catch (e) {
-      console.error("[zk] stampCreated error", e);
+      console.error("[ties] stampCreated error", e);
     }
   }
 
@@ -538,7 +538,7 @@ export default class ZKConnectivityPlugin extends Plugin {
           : "Нельзя связать с собой"
       );
     } catch (e) {
-      console.error("[zk-connectivity] connect error", e);
+      console.error("[ties] connect error", e);
       new Notice(`Ties: ошибка — ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -553,10 +553,10 @@ export default class ZKConnectivityPlugin extends Plugin {
   }
 }
 
-class ZKSettingTab extends PluginSettingTab {
-  plugin: ZKConnectivityPlugin;
+class TiesSettingTab extends PluginSettingTab {
+  plugin: TiesPlugin;
 
-  constructor(app: App, plugin: ZKConnectivityPlugin) {
+  constructor(app: App, plugin: TiesPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }

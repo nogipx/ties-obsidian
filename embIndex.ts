@@ -34,7 +34,7 @@ export class EmbeddingIndex {
         }
       }
     } catch (e) {
-      console.error("[zk] emb cache load failed", e);
+      console.error("[ties] emb cache load failed", e);
     }
   }
 
@@ -46,7 +46,7 @@ export class EmbeddingIndex {
       await this.app.vault.adapter.write(this.cachePath, JSON.stringify(obj));
       this.dirty = false;
     } catch (e) {
-      console.error("[zk] emb cache save failed", e);
+      console.error("[ties] emb cache save failed", e);
     }
   }
 
@@ -78,7 +78,7 @@ export class EmbeddingIndex {
         try {
           await this.embedFile(f);
         } catch (e) {
-          console.error("[zk] embed failed", f.path, e);
+          console.error("[ties] embed failed", f.path, e);
         }
       }
       done++;

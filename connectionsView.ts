@@ -1,6 +1,6 @@
 import { App, ItemView, TFile, WorkspaceLeaf, getLinkpath } from "obsidian";
 
-export const VIEW_TYPE_ZK = "zk-connections";
+export const VIEW_TYPE_TIES = "ties-connections";
 
 interface Conn {
   type: string;
@@ -61,7 +61,7 @@ export class ConnectionsView extends ItemView {
   }
 
   getViewType(): string {
-    return VIEW_TYPE_ZK;
+    return VIEW_TYPE_TIES;
   }
   getDisplayText(): string {
     return "Ties: связи";
