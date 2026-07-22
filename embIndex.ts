@@ -1,6 +1,20 @@
 import { App, TFile } from "obsidian";
 import { embed, stripFrontmatter, cosine, EmbedConfig } from "./embeddings";
 
+// Создать папку рекурсивно (по сегментам) — adapter.mkdir не всегда делает вложенные.
+export async function mkdirp(app: App, dir: string): Promise<void> {
+  const parts = dir.split("/").filter(Boolean);
+  let cur = "";
+  for (const p of parts) {
+    cur = cur ? `${cur}/${p}` : p;
+    try {
+      if (!(await app.vault.adapter.exists(cur))) await app.vault.adapter.mkdir(cur);
+    } catch {
+      /* уже существует или гонка */
+    }
+  }
+}
+
 interface Entry {
   hash: string;
   model: string;
@@ -119,12 +133,7 @@ export class EmbeddingIndex {
   private async ensureParentDir(): Promise<void> {
     const i = this.cachePath.lastIndexOf("/");
     if (i <= 0) return;
-    const dir = this.cachePath.slice(0, i);
-    try {
-      if (!(await this.app.vault.adapter.exists(dir))) await this.app.vault.adapter.mkdir(dir);
-    } catch {
-      /* уже существует или гонка */
-    }
+    await mkdirp(this.app, this.cachePath.slice(0, i));
   }
 
   async save(): Promise<void> {

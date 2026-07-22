@@ -17,7 +17,7 @@ import { promptText } from "./promptModal";
 import { DEFAULT_REL_TYPES, isSystemType, normalizeTypes, RelType } from "./types";
 import { TypesModal } from "./typesModal";
 import { embed, stripFrontmatter } from "./embeddings";
-import { EmbeddingIndex } from "./embIndex";
+import { EmbeddingIndex, mkdirp } from "./embIndex";
 import { computeConnections, ConnectionsView, VIEW_TYPE_TIES } from "./connectionsView";
 import { ConnectionsModal } from "./connectionsModal";
 import { TiesBlock } from "./tiesBlock";
@@ -360,9 +360,7 @@ export default class TiesPlugin extends Plugin {
     const dir = this.embeddingsCacheDir();
     const target = `${dir}/ties-indexer.mjs`;
     try {
-      if (dir && !(await this.app.vault.adapter.exists(dir))) {
-        await this.app.vault.adapter.mkdir(dir);
-      }
+      if (dir) await mkdirp(this.app, dir);
       await this.app.vault.adapter.write(target, __INDEXER_SOURCE__);
       new Notice(`Индексер разложен: ${target}`);
     } catch (e) {
