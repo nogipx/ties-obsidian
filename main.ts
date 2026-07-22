@@ -26,6 +26,9 @@ import { buildGraph, kShortestPaths, personalizedPageRank, buildTree } from "./g
 import { PathsModal, NeighborhoodModal, TreeModal } from "./graphModals";
 import { HelpModal } from "./helpModal";
 
+// Исходник индексера, вшитый esbuild (см. esbuild.config.mjs -> define).
+declare const __INDEXER_SOURCE__: string;
+
 interface TiesSettings {
   relationTypes: RelType[];
   includeBodyLinks: boolean;
@@ -341,12 +344,30 @@ export default class TiesPlugin extends Plugin {
     this.app.workspace.revealLeaf(leaf);
   }
 
-  embeddingsCachePath(): string {
-    const file = "ties-embeddings.bin";
+  embeddingsCacheDir(): string {
     const dir = this.settings.embeddingsPath?.trim();
-    if (!dir) return `${this.manifest.dir}/${file}`;
-    const clean = dir.replace(/^\.\//, "").replace(/\/+$/, ""); // убрать ./ и хвостовой /
-    return `${clean}/${file}`;
+    if (!dir) return this.manifest.dir ?? "";
+    return dir.replace(/^\.\//, "").replace(/\/+$/, ""); // убрать ./ и хвостовой /
+  }
+
+  embeddingsCachePath(): string {
+    return `${this.embeddingsCacheDir()}/ties-embeddings.bin`;
+  }
+
+  // Разложить standalone-индексер (вшитый в плагин) в папку кэша — оттуда rhyolite
+  // синхронизирует его на сервер, где достаточно `node ties-indexer.mjs --watch`.
+  async deployIndexer(): Promise<void> {
+    const dir = this.embeddingsCacheDir();
+    const target = `${dir}/ties-indexer.mjs`;
+    try {
+      if (dir && !(await this.app.vault.adapter.exists(dir))) {
+        await this.app.vault.adapter.mkdir(dir);
+      }
+      await this.app.vault.adapter.write(target, __INDEXER_SOURCE__);
+      new Notice(`Индексер разложен: ${target}`);
+    } catch (e) {
+      new Notice(`Не удалось разложить индексер: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   openConnectionsModal(file: TFile | null = this.app.workspace.getActiveFile()): void {
@@ -803,13 +824,23 @@ class TiesSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Кэш только для чтения")
       .setDesc(
-        "Плагин только читает синхронизированный ties-embeddings.bin и сам его не пишет (эмбеддинги считает сервер-индексер). Отключает авто-обновление и переиндексацию на этом устройстве."
+        "Плагин только читает синхронизированный ties-embeddings.bin и сам его не пишет (эмбеддинги считает сервер-индексер). Отключает авто-обновление и переиндексацию на этом устройстве. При включении раскладывает индексер в папку кэша."
       )
       .addToggle((t) =>
         t.setValue(this.plugin.settings.readOnlyEmbeddings).onChange(async (v) => {
           this.plugin.settings.readOnlyEmbeddings = v;
           await this.plugin.saveSettings();
+          if (v) await this.plugin.deployIndexer();
         })
+      );
+
+    new Setting(containerEl)
+      .setName("Индексер для сервера")
+      .setDesc(
+        "Разложить standalone-индексер (ties-indexer.mjs) в папку кэша. Через синхронизацию он попадёт на сервер, где: node ties-indexer.mjs --watch"
+      )
+      .addButton((b) =>
+        b.setButtonText("Разложить индексер").onClick(() => this.plugin.deployIndexer())
       );
   }
 }

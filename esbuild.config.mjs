@@ -1,8 +1,12 @@
 import esbuild from "esbuild";
 import process from "process";
+import { readFileSync } from "fs";
 import builtins from "builtin-modules";
 
 const prod = process.argv[2] === "production";
+
+// Вшиваем исходник standalone-индексера, чтобы плагин мог разложить его в папку кэша.
+const indexerSource = readFileSync("indexer/ties-indexer.mjs", "utf8");
 
 const context = await esbuild.context({
   entryPoints: ["main.ts"],
@@ -13,6 +17,7 @@ const context = await esbuild.context({
   logLevel: "info",
   sourcemap: prod ? false : "inline",
   treeShaking: true,
+  define: { __INDEXER_SOURCE__: JSON.stringify(indexerSource) },
   outfile: "main.js",
 });
 
