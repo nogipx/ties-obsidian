@@ -36,6 +36,7 @@ interface TiesSettings {
   createdFormat: string;
   autoEmbed: boolean;
   embeddingsPath: string;
+  readOnlyEmbeddings: boolean;
   ollamaUrl: string;
   ollamaModel: string;
 }
@@ -50,6 +51,7 @@ const DEFAULT_SETTINGS: TiesSettings = {
   createdFormat: "YYYY-MM-DDTHH:mm",
   autoEmbed: true,
   embeddingsPath: "",
+  readOnlyEmbeddings: false,
   ollamaUrl: "http://127.0.0.1:11434",
   ollamaModel: "bge-m3",
 };
@@ -75,7 +77,8 @@ export default class TiesPlugin extends Plugin {
     this.embIndex = new EmbeddingIndex(
       this.app,
       this.embeddingsCachePath(),
-      () => ({ url: this.settings.ollamaUrl, model: this.settings.ollamaModel })
+      () => ({ url: this.settings.ollamaUrl, model: this.settings.ollamaModel }),
+      () => this.settings.readOnlyEmbeddings
     );
     this.app.workspace.onLayoutReady(() => this.embIndex.load());
     this.registerEvent(
@@ -93,7 +96,7 @@ export default class TiesPlugin extends Plugin {
     const reembed = debounce(() => void this.flushReembed(), 2500, false);
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (!this.settings.autoEmbed) return;
+        if (!this.settings.autoEmbed || this.settings.readOnlyEmbeddings) return;
         if (file instanceof TFile && file.extension === "md") {
           this.reembedQueue.add(file.path);
           reembed();
@@ -195,6 +198,10 @@ export default class TiesPlugin extends Plugin {
       id: "reindex-embeddings",
       name: "Переиндексировать похожие (эмбеддинги)",
       callback: async () => {
+        if (this.settings.readOnlyEmbeddings) {
+          new Notice("Кэш эмбеддингов только для чтения — индексирует сервер");
+          return;
+        }
         const files = this.app.vault.getMarkdownFiles();
         const notice = new Notice(`Индексирую эмбеддинги… 0/${files.length}`, 0);
         try {
@@ -792,5 +799,17 @@ class TiesSettingTab extends PluginSettingTab {
           await this.plugin.embIndex.relocate(this.plugin.embeddingsCachePath());
         });
       });
+
+    new Setting(containerEl)
+      .setName("Кэш только для чтения")
+      .setDesc(
+        "Плагин только читает синхронизированный ties-embeddings.bin и сам его не пишет (эмбеддинги считает сервер-индексер). Отключает авто-обновление и переиндексацию на этом устройстве."
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.readOnlyEmbeddings).onChange(async (v) => {
+          this.plugin.settings.readOnlyEmbeddings = v;
+          await this.plugin.saveSettings();
+        })
+      );
   }
 }

@@ -26,7 +26,10 @@ function encode(map: Map<string, Entry>): ArrayBuffer {
   const enc = new TextEncoder();
   const rows: Array<{ path: Uint8Array; hash: Uint8Array; model: Uint8Array; vec: Float32Array }> = [];
   let size = 4 + 1 + 4;
-  for (const [p, e] of map) {
+  // Стабильный порядок по пути: одинаковые данные -> одинаковые байты (дружелюбно к CDC-дельтам).
+  const keys = [...map.keys()].sort();
+  for (const p of keys) {
+    const e = map.get(p)!;
     const path = enc.encode(p);
     const hash = enc.encode(e.hash);
     const model = enc.encode(e.model);
@@ -82,13 +85,20 @@ export class EmbeddingIndex {
   private app: App;
   private cachePath: string;
   private cfg: () => EmbedConfig;
+  private readOnly: () => boolean;
   private map = new Map<string, Entry>();
   private dirty = false;
 
-  constructor(app: App, cachePath: string, cfg: () => EmbedConfig) {
+  constructor(
+    app: App,
+    cachePath: string,
+    cfg: () => EmbedConfig,
+    readOnly: () => boolean = () => false
+  ) {
     this.app = app;
     this.cachePath = cachePath;
     this.cfg = cfg;
+    this.readOnly = readOnly;
   }
 
   size(): number {
@@ -119,6 +129,10 @@ export class EmbeddingIndex {
 
   async save(): Promise<void> {
     if (!this.dirty) return;
+    if (this.readOnly()) {
+      this.dirty = false; // read-only: файл пишет сервер, локально не сохраняем
+      return;
+    }
     try {
       await this.ensureParentDir();
       await this.app.vault.adapter.writeBinary(this.cachePath, encode(this.map));
@@ -128,9 +142,15 @@ export class EmbeddingIndex {
     }
   }
 
-  // Перенести кэш в другой путь (сохранить туда, старый файл удалить).
+  // Сменить путь кэша. В read-only — просто перечитать из нового места.
   async relocate(newPath: string): Promise<void> {
     if (!newPath || newPath === this.cachePath) return;
+    if (this.readOnly()) {
+      this.cachePath = newPath;
+      this.map.clear();
+      await this.load();
+      return;
+    }
     const old = this.cachePath;
     this.cachePath = newPath;
     this.dirty = true;
