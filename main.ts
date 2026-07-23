@@ -646,13 +646,22 @@ class TiesSettingTab extends PluginSettingTab {
         attr: { type: "text", placeholder: "тип" },
       });
       name.value = rt.name;
+      const named = rt.name.trim().length > 0;
       if (system) {
         name.disabled = true;
         name.title = "системный тип — нельзя изменить";
+      } else if (named) {
+        // имя фиксировано: переименование только карандашом (перенесёт связи)
+        name.disabled = true;
+        name.title = "переименование — карандашом (перенесёт связи)";
       } else {
+        // новый (безымянный) тип — задаём имя прямо в поле
         name.addEventListener("input", async () => {
           rt.name = name.value.trim();
           await this.plugin.saveSettings();
+        });
+        name.addEventListener("blur", () => {
+          if (rt.name.trim().length > 0) this.display(); // назвали -> фиксируем поле
         });
       }
 
@@ -671,6 +680,7 @@ class TiesSettingTab extends PluginSettingTab {
         return;
       }
 
+      if (named) {
       const rename = row.createDiv({
         cls: "clickable-icon zk-type-del",
         attr: { "aria-label": "переименовать тип во всех заметках" },
@@ -716,6 +726,7 @@ class TiesSettingTab extends PluginSettingTab {
         setTimeout(() => notice.hide(), 3000);
         this.display();
       });
+      }
 
       const merge = row.createDiv({
         cls: "clickable-icon zk-type-del",
