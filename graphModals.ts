@@ -207,6 +207,8 @@ export class MocsModal extends Modal {
     for (const it of this.items) {
       const route = body.createDiv({ cls: "zk-route" });
       const head = route.createDiv({ cls: "zk-route-head" });
+      const icon = head.createSpan({ cls: "zk-route-icon" });
+      setIcon(icon, "layers");
       const title = head.createEl("a", { text: it.file.basename, cls: "zk-route-title zk-link" });
       title.addEventListener("click", (e) => {
         e.preventDefault();
@@ -215,6 +217,8 @@ export class MocsModal extends Modal {
       head.createSpan({ text: hops(it.hops), cls: "zk-count" });
 
       it.path.forEach((p, idx) => {
+        const isStart = idx === 0;
+        const isEnd = idx === it.path.length - 1;
         if (idx > 0) {
           const edge = route.createDiv({ cls: "zk-route-edge" });
           edge.createSpan({
@@ -222,15 +226,19 @@ export class MocsModal extends Modal {
             cls: "zk-route-edge-label",
           });
         }
-        const kind = idx === 0 ? "start" : idx === it.path.length - 1 ? "end" : "mid";
+        const kind = isStart ? "start" : isEnd ? "end" : "mid";
         const node = route.createDiv({ cls: "zk-route-node" });
         node.createSpan({ cls: `zk-route-dot zk-route-dot-${kind}` });
-        const a = node.createEl("a", { text: p.basename, cls: "zk-link" });
+        const a = node.createEl("a", {
+          text: p.basename,
+          cls: isStart ? "zk-link zk-route-start" : "zk-link",
+        });
         a.addEventListener("click", (e) => {
           e.preventDefault();
           this.go(p.path);
         });
-        const f = resolve(this.appRef, p.path);
+        // превью для промежуточных/конечного; у старта (текущая заметка) — не нужно
+        const f = isStart ? null : resolve(this.appRef, p.path);
         if (f) {
           const eye = node.createSpan({ cls: "zk-route-eye clickable-icon" });
           eye.setAttribute("aria-label", "Предпросмотр");
