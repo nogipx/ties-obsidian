@@ -107,35 +107,47 @@ export function nearestMoc(app: App, file: TFile, pattern: string): TFile | null
   return path && path.length > 1 ? path[path.length - 1] : null;
 }
 
-// Все достижимые MOC из заметки, с дистанцией (кратчайшее число хопов).
-// Через MOC не разворачиваем (MOC — хаб, иначе достижимо стало бы «почти всё»).
-// Сортировка по (хопы, имя) — детерминированно.
+// Все соседские MOC из заметки, с дистанцией (кратчайшее число хопов).
+// Без лимита глубины: MOC — барьер. Дойдя до MOC, записываем его и помечаем
+// пройденными И сам MOC, И все напрямую связанные с ним заметки (его кластер) —
+// чтобы обход не «протекал» сквозь карту к дальним MOC.
+// maxNodes — только страховка от гигантских компонент без карт.
 export function reachableMocs(
   app: App,
   file: TFile,
   pattern: string,
-  maxHops = 4
+  maxNodes = 4000
 ): Array<{ file: TFile; hops: number }> {
   if (isMoc(app, file, pattern)) return [];
-  const dist = new Map<string, number>([[file.path, 0]]);
+  const visited = new Set<string>([file.path]);
   const found = new Map<string, { file: TFile; hops: number }>();
-  const queue: TFile[] = [file];
-  while (queue.length) {
+  const queue: Array<{ file: TFile; hops: number }> = [{ file, hops: 0 }];
+  let processed = 0;
+
+  while (queue.length && processed < maxNodes) {
     const cur = queue.shift()!;
-    const d = dist.get(cur.path)!;
-    if (d >= maxHops) continue;
-    for (const nbPath of neighbors(app, cur)) {
-      if (dist.has(nbPath)) continue;
-      dist.set(nbPath, d + 1);
+    processed++;
+    const mocsHere: TFile[] = [];
+
+    for (const nbPath of neighbors(app, cur.file)) {
+      if (visited.has(nbPath)) continue;
+      visited.add(nbPath);
       const nb = app.vault.getAbstractFileByPath(nbPath);
       if (!(nb instanceof TFile)) continue;
       if (isMoc(app, nb, pattern)) {
-        found.set(nbPath, { file: nb, hops: d + 1 }); // записываем, но дальше не разворачиваем
+        found.set(nbPath, { file: nb, hops: cur.hops + 1 });
+        mocsHere.push(nb);
       } else {
-        queue.push(nb);
+        queue.push({ file: nb, hops: cur.hops + 1 });
       }
     }
+
+    // Барьер: прямые соседи найденных карт (участники) — тоже пройдены, дальше не идём
+    for (const m of mocsHere) {
+      for (const mnb of neighbors(app, m)) visited.add(mnb);
+    }
   }
+
   return [...found.values()].sort(
     (a, b) => a.hops - b.hops || a.file.basename.localeCompare(b.file.basename)
   );
