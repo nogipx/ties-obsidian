@@ -2,6 +2,7 @@ import {
   App,
   debounce,
   MarkdownView,
+  Menu,
   moment,
   Notice,
   Plugin,
@@ -714,6 +715,41 @@ class TiesSettingTab extends PluginSettingTab {
         );
         setTimeout(() => notice.hide(), 3000);
         this.display();
+      });
+
+      const merge = row.createDiv({
+        cls: "clickable-icon zk-type-del",
+        attr: { "aria-label": "слить с другим типом" },
+      });
+      setIcon(merge, "git-merge");
+      merge.addEventListener("click", (e) => {
+        const from = rt.name;
+        if (!from) {
+          new Notice("Сначала задай имя типа");
+          return;
+        }
+        const others = this.plugin.settings.relationTypes.filter(
+          (t, idx) => idx !== i && t.name && t.name !== MOC_TYPE
+        );
+        if (others.length === 0) {
+          new Notice("Нет других типов для слияния");
+          return;
+        }
+        const menu = new Menu();
+        for (const t of others) {
+          menu.addItem((item) =>
+            item.setTitle(`Слить в «${t.name}»`).onClick(async () => {
+              const notice = new Notice("Слияние…", 0);
+              const n = await this.plugin.migrateType(from, t.name);
+              this.plugin.settings.relationTypes.splice(i, 1);
+              await this.plugin.saveSettings();
+              notice.setMessage(`Слито в «${t.name}», заметок: ${n}`);
+              setTimeout(() => notice.hide(), 3000);
+              this.display();
+            })
+          );
+        }
+        menu.showAtMouseEvent(e as MouseEvent);
       });
 
       const del = row.createDiv({
