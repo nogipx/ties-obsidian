@@ -1,6 +1,28 @@
-import { App, Modal, TFile, setIcon } from "obsidian";
+import { App, Modal, TFile, setIcon, getLinkpath } from "obsidian";
 import { Graph, edgeLabel, TreeNode } from "./graph";
+import { ReachableMoc } from "./moc";
 import { NotePreviewModal } from "./notePreviewModal";
+
+// Ярлык ребра между двумя заметками по метаданным (для маршрута до MOC).
+function linkTypeBetween(app: App, from: TFile, to: TFile): string | null {
+  const cache = app.metadataCache.getFileCache(from);
+  for (const l of cache?.frontmatterLinks ?? []) {
+    const d = app.metadataCache.getFirstLinkpathDest(getLinkpath(l.link), from.path);
+    if (d?.path === to.path) return l.key.split(".")[0];
+  }
+  for (const l of cache?.links ?? []) {
+    const d = app.metadataCache.getFirstLinkpathDest(getLinkpath(l.link), from.path);
+    if (d?.path === to.path) return "тело";
+  }
+  return null;
+}
+function routeEdge(app: App, u: TFile, v: TFile): string {
+  const f = linkTypeBetween(app, u, v);
+  if (f) return `↓ ${f}`;
+  const b = linkTypeBetween(app, v, u);
+  if (b) return `↑ ${b}`;
+  return "·";
+}
 
 function resolve(app: App, path: string): TFile | null {
   const f = app.vault.getAbstractFileByPath(path);
@@ -150,6 +172,77 @@ export class PathsModal extends Modal {
       node.createSpan({ cls: `zk-route-dot zk-route-dot-${kind}` });
       linkRow(this.appRef, node, p, this);
     });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+// Соседские MOC с путями до них
+export class MocsModal extends Modal {
+  constructor(
+    private appRef: App,
+    private items: ReachableMoc[],
+    private onNavigate: (path: string) => void
+  ) {
+    super(appRef);
+  }
+
+  private go(path: string): void {
+    this.close();
+    this.onNavigate(path);
+  }
+
+  onOpen(): void {
+    this.modalEl.addClass("zk-graph-modal");
+    this.titleEl.setText(`Соседские MOC (${this.items.length})`);
+    const { contentEl } = this;
+    contentEl.addClass("zk-modal");
+    const body = contentEl.createDiv({ cls: "zk-modal-body" });
+    if (this.items.length === 0) {
+      body.createDiv({ text: "Соседних MOC нет.", cls: "zk-empty" });
+      return;
+    }
+    for (const it of this.items) {
+      const route = body.createDiv({ cls: "zk-route" });
+      const head = route.createDiv({ cls: "zk-route-head" });
+      const title = head.createEl("a", { text: it.file.basename, cls: "zk-route-title zk-link" });
+      title.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.go(it.file.path);
+      });
+      head.createSpan({ text: hops(it.hops), cls: "zk-count" });
+
+      it.path.forEach((p, idx) => {
+        if (idx > 0) {
+          const edge = route.createDiv({ cls: "zk-route-edge" });
+          edge.createSpan({
+            text: routeEdge(this.appRef, it.path[idx - 1], p),
+            cls: "zk-route-edge-label",
+          });
+        }
+        const kind = idx === 0 ? "start" : idx === it.path.length - 1 ? "end" : "mid";
+        const node = route.createDiv({ cls: "zk-route-node" });
+        node.createSpan({ cls: `zk-route-dot zk-route-dot-${kind}` });
+        const a = node.createEl("a", { text: p.basename, cls: "zk-link" });
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.go(p.path);
+        });
+        const f = resolve(this.appRef, p.path);
+        if (f) {
+          const eye = node.createSpan({ cls: "zk-route-eye clickable-icon" });
+          eye.setAttribute("aria-label", "Предпросмотр");
+          setIcon(eye, "eye");
+          eye.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            new NotePreviewModal(this.appRef, f).open();
+          });
+        }
+      });
+    }
   }
 
   onClose(): void {

@@ -107,7 +107,13 @@ export function nearestMoc(app: App, file: TFile, pattern: string): TFile | null
   return path && path.length > 1 ? path[path.length - 1] : null;
 }
 
-// Все соседские MOC из заметки, с дистанцией (кратчайшее число хопов).
+export interface ReachableMoc {
+  file: TFile;
+  hops: number;
+  path: TFile[]; // от заметки до MOC (включительно)
+}
+
+// Все соседские MOC из заметки, с дистанцией и путём.
 // Без лимита глубины: MOC — барьер. Дойдя до MOC, записываем его и помечаем
 // пройденными И сам MOC, И все напрямую связанные с ним заметки (его кластер) —
 // чтобы обход не «протекал» сквозь карту к дальним MOC.
@@ -117,12 +123,25 @@ export function reachableMocs(
   file: TFile,
   pattern: string,
   maxNodes = 4000
-): Array<{ file: TFile; hops: number }> {
+): ReachableMoc[] {
   if (isMoc(app, file, pattern)) return [];
   const visited = new Set<string>([file.path]);
-  const found = new Map<string, { file: TFile; hops: number }>();
+  const prev = new Map<string, TFile>(); // path -> предшественник
+  const found = new Map<string, ReachableMoc>();
   const queue: Array<{ file: TFile; hops: number }> = [{ file, hops: 0 }];
   let processed = 0;
+
+  const reconstruct = (target: TFile): TFile[] => {
+    const out = [target];
+    let cur = target.path;
+    while (cur !== file.path) {
+      const p = prev.get(cur);
+      if (!p) break;
+      out.unshift(p);
+      cur = p.path;
+    }
+    return out;
+  };
 
   while (queue.length && processed < maxNodes) {
     const cur = queue.shift()!;
@@ -132,10 +151,11 @@ export function reachableMocs(
     for (const nbPath of neighbors(app, cur.file)) {
       if (visited.has(nbPath)) continue;
       visited.add(nbPath);
+      prev.set(nbPath, cur.file);
       const nb = app.vault.getAbstractFileByPath(nbPath);
       if (!(nb instanceof TFile)) continue;
       if (isMoc(app, nb, pattern)) {
-        found.set(nbPath, { file: nb, hops: cur.hops + 1 });
+        found.set(nbPath, { file: nb, hops: cur.hops + 1, path: reconstruct(nb) });
         mocsHere.push(nb);
       } else {
         queue.push({ file: nb, hops: cur.hops + 1 });

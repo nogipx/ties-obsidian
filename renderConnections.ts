@@ -1,6 +1,7 @@
-import { App, Menu, TFile } from "obsidian";
+import { App, TFile } from "obsidian";
 import { computeConnections } from "./connectionsView";
 import { isMoc, directMembers, orbit, reachableMocs } from "./moc";
+import { MocsModal } from "./graphModals";
 import { removeLink } from "./linkStore";
 import { confirm } from "./confirmModal";
 import { promptText } from "./promptModal";
@@ -15,15 +16,6 @@ export interface BodyOpts {
   openLink: (path: string) => void;
   changeType?: (fromType: string, target: TFile) => Promise<void>; // сменить тип исходящей связи
   onTypes?: () => void; // открыть справку по типам (иконка на строке первой секции)
-}
-
-function hopWord(n: number): string {
-  const a = Math.abs(n) % 100;
-  const d = a % 10;
-  if (a > 10 && a < 20) return `${n} хопов`;
-  if (d === 1) return `${n} хоп`;
-  if (d >= 2 && d <= 4) return `${n} хопа`;
-  return `${n} хопов`;
 }
 
 export interface MocButtonOpts {
@@ -67,20 +59,10 @@ export function renderMocButton(
       text: `карты (${reachable.length})`,
       cls: opts.blockStyle ? "zk-block-moc-more" : "zk-moc-more",
     });
-    more.setAttribute("aria-label", "соседние MOC");
+    more.setAttribute("aria-label", "соседние MOC с путями");
     more.addEventListener("click", (e) => {
       e.preventDefault();
-      const menu = new Menu();
-      for (const m of reachable) {
-        menu.addItem((item) => {
-          item.setTitle(
-            m.hops === 1 ? m.file.basename : `${m.file.basename}  ·  ${hopWord(m.hops)}`
-          );
-          if (m.hops === 1) item.setIcon("link"); // прямое членство/сосед
-          item.onClick(() => onNavigate(m.file.path));
-        });
-      }
-      menu.showAtMouseEvent(e as MouseEvent);
+      new MocsModal(app, reachable, onNavigate).open();
     });
   }
 }
