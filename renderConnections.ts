@@ -1,6 +1,6 @@
 import { App, TFile } from "obsidian";
 import { computeConnections } from "./connectionsView";
-import { isMoc, directMembers, orbit, pathToMoc } from "./moc";
+import { isMoc, directMembers, orbit } from "./moc";
 import { removeLink } from "./linkStore";
 import { confirm } from "./confirmModal";
 import { promptText } from "./promptModal";
@@ -43,15 +43,8 @@ export function renderConnectionsBody(
       orb.map((o) => ({ file: o.file, note: `×${o.count}` })),
       opts
     );
-  } else {
-    const path = pathToMoc(app, file, opts.mocPattern);
-    if (path && path.length > 1) {
-      const line = el.createDiv({ cls: "zk-footer-nearest" });
-      line.appendText("↑ ближайший MOC: ");
-      linkEl(line, path[path.length - 1], opts);
-    } else if (outgoing.size === 0 && incoming.size === 0) {
-      el.createDiv({ text: "Связей пока нет.", cls: "zk-empty" });
-    }
+  } else if (outgoing.size === 0 && incoming.size === 0) {
+    el.createDiv({ text: "Связей пока нет.", cls: "zk-empty" });
   }
 }
 

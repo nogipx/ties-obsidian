@@ -1,6 +1,6 @@
 import { App, MarkdownRenderChild, TFile } from "obsidian";
 import { renderConnectionsBody } from "./renderConnections";
-import { isMoc } from "./moc";
+import { isMoc, nearestMoc } from "./moc";
 import { RelType } from "./types";
 import { TypesModal } from "./typesModal";
 
@@ -53,6 +53,16 @@ export class TiesBlock extends MarkdownRenderChild {
       e.preventDefault();
       new TypesModal(this.app, this.deps.types()).open();
     });
+
+    const near = moc ? null : nearestMoc(this.app, this.file, this.deps.mocPattern());
+    if (near) {
+      const mocBtn = actions.createEl("a", { text: `↑ ${near.basename}`, cls: "zk-block-moc" });
+      mocBtn.setAttribute("aria-label", "ближайший MOC");
+      mocBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.app.workspace.openLinkText(near.path, this.file.path, false);
+      });
+    }
 
     const body = el.createDiv({ cls: "zk-block-body" });
     renderConnectionsBody(this.app, body, this.file, {

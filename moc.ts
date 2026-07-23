@@ -99,3 +99,10 @@ export function pathToMoc(app: App, start: TFile, pattern: string): TFile[] | nu
   }
   return null;
 }
+
+// Ближайший MOC (сам файл — не в счёт). null, если заметка сама MOC или путь не найден.
+export function nearestMoc(app: App, file: TFile, pattern: string): TFile | null {
+  if (isMoc(app, file, pattern)) return null;
+  const path = pathToMoc(app, file, pattern);
+  return path && path.length > 1 ? path[path.length - 1] : null;
+}
