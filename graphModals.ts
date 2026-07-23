@@ -96,8 +96,8 @@ export class PathsModal extends Modal {
     contentEl.empty();
     contentEl.addClass("zk-modal");
 
+    this.titleEl.setText("Пути");
     const header = contentEl.createDiv({ cls: "zk-modal-header" });
-    header.createEl("h3", { text: "Пути" });
 
     const sub = header.createDiv({ cls: "zk-route-sub" });
     this.endpointChip(sub, "from");
@@ -212,8 +212,8 @@ export class TreeModal extends Modal {
     contentEl.empty();
     contentEl.addClass("zk-modal");
 
+    this.titleEl.setText(`Обход: ${this.root.basename}`);
     const header = contentEl.createDiv({ cls: "zk-modal-header" });
-    header.createEl("h3", { text: `Обход: ${this.root.basename}` });
     header.createDiv({
       cls: "zk-route-sub",
       text: `достижимо ${this.count}${this.truncated ? " (показаны первые " + this.count + ")" : ""}`,
@@ -303,8 +303,8 @@ export class NeighborhoodModal extends Modal {
     this.modalEl.addClass("zk-graph-modal");
     const { contentEl } = this;
     contentEl.addClass("zk-modal");
+    this.titleEl.setText(`Окрестность: ${this.seed.basename}`);
     const header = contentEl.createDiv({ cls: "zk-modal-header" });
-    header.createEl("h3", { text: `Окрестность: ${this.seed.basename}` });
 
     const body = contentEl.createDiv({ cls: "zk-modal-body" });
     if (!this.items.length) {

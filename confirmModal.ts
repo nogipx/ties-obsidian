@@ -21,7 +21,7 @@ export function confirm(app: App, opts: ConfirmOpts): Promise<boolean> {
       onOpen(): void {
         const { contentEl } = this;
         contentEl.addClass("zk-confirm");
-        contentEl.createEl("h3", { text: opts.title });
+        this.titleEl.setText(opts.title);
         if (opts.message) contentEl.createEl("p", { text: opts.message, cls: "zk-confirm-msg" });
 
         const bar = contentEl.createDiv({ cls: "zk-confirm-bar" });

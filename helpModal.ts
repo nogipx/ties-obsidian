@@ -9,7 +9,7 @@ export class HelpModal extends Modal {
     const { contentEl } = this;
     contentEl.addClass("zk-help");
 
-    contentEl.createEl("h2", { text: "Ties" });
+    this.titleEl.setText("Ties");
     contentEl.createEl("p", {
       text: "Ты решаешь, что с чем связать, — плагин снимает механику. Он подбирает похожие по смыслу заметки, пишет типизированную связь во frontmatter, а по иконке-звену в шапке заметки показывает её связи. Тело остаётся чистой прозой.",
     });

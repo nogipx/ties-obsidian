@@ -9,9 +9,9 @@ export class TypesModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.addClass("zk-help");
-    contentEl.createEl("h3", { text: "Типы связей" });
+    this.titleEl.setText("Типы связей");
     contentEl.createEl("p", {
-      text: "Читается: «эта заметка [тип] цель». В футере «Исходящие» — что делает эта заметка, «Входящие» — что делают с ней.",
+      text: "Читается: «эта заметка [тип] цель». В связях «Исходящие» — что делает эта заметка, «Входящие» — что делают с ней.",
     });
     const ul = contentEl.createEl("ul");
     for (const t of this.types) {

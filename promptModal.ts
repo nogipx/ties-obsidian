@@ -21,7 +21,7 @@ export function promptText(app: App, opts: PromptOpts): Promise<string | null> {
       onOpen(): void {
         const { contentEl } = this;
         contentEl.addClass("zk-prompt");
-        contentEl.createEl("h3", { text: opts.title });
+        this.titleEl.setText(opts.title);
 
         const ta = contentEl.createEl("textarea", { cls: "zk-prompt-input" });
         ta.value = opts.value ?? "";

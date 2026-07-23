@@ -12,7 +12,7 @@ export class NotePreviewModal extends Modal {
     this.modalEl.addClass("zk-preview-modal");
     const { contentEl } = this;
     contentEl.addClass("zk-preview");
-    contentEl.createEl("h3", { text: this.file.basename, cls: "zk-preview-title" });
+    this.titleEl.setText(this.file.basename);
     const body = contentEl.createDiv({ cls: "zk-preview-body markdown-rendered" });
     this.comp.load();
     try {
