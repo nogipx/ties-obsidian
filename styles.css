@@ -353,6 +353,22 @@
 .zk-block-moc:hover {
   color: var(--text-accent);
 }
+/* Вторая кнопка «карты (N)» — соседние MOC */
+.zk-moc-more {
+  flex: 0 0 auto;
+}
+.zk-block-moc-more {
+  display: inline-block;
+  margin-left: 10px;
+  color: var(--text-faint);
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.zk-block-moc-more:hover {
+  color: var(--text-accent);
+}
 .zk-modal-body {
   flex: 1 1 auto;
   min-height: 0;

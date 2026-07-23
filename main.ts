@@ -16,7 +16,7 @@ import { pickSimilar, pickType, ScoredFile } from "./pickers";
 import { promptText } from "./promptModal";
 import { DEFAULT_REL_TYPES, isSystemType, normalizeTypes, RelType } from "./types";
 import { TypesModal } from "./typesModal";
-import { embed, stripFrontmatter } from "./embeddings";
+import { embed, stripFrontmatter, cosine } from "./embeddings";
 import { EmbeddingIndex, mkdirp } from "./embIndex";
 import { computeConnections, ConnectionsView, VIEW_TYPE_TIES } from "./connectionsView";
 import { ConnectionsModal } from "./connectionsModal";
@@ -148,6 +148,7 @@ export default class TiesPlugin extends Plugin {
             types: () => this.settings.relationTypes,
             connect: () => this.connectFromActive(),
             changeType: (fromType, target) => this.changeLinkType(f, fromType, target),
+            rankMocs: (from, mocs) => this.rankMocsBySimilarity(from, mocs),
           },
           el
         )
@@ -379,6 +380,7 @@ export default class TiesPlugin extends Plugin {
       types: this.settings.relationTypes,
       connect: () => this.connectFromActive(),
       changeType: (fromType, target) => this.changeLinkType(file, fromType, target),
+      rankMocs: (from, mocs) => this.rankMocsBySimilarity(from, mocs),
     }).open();
   }
 
@@ -424,6 +426,20 @@ export default class TiesPlugin extends Plugin {
       }
     }
     return scored;
+  }
+
+  // Переупорядочить MOC по семантической близости к заметке (по кэш-эмбеддингам, без Ollama).
+  // Нет вектора заметки/карт — оставляем порядок как есть (по хопам).
+  rankMocsBySimilarity(from: TFile, mocs: TFile[]): TFile[] {
+    const q = this.embIndex.getCached(from.path);
+    if (!q) return mocs;
+    return mocs
+      .map((m) => {
+        const v = this.embIndex.getCached(m.path);
+        return { m, s: v && v.length === q.length ? cosine(q, v) : -2 };
+      })
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.m);
   }
 
   // Карта path -> ярлык существующей связи с source (для бейджа в пикере).

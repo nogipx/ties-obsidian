@@ -119,6 +119,11 @@ export class EmbeddingIndex {
     return this.map.size;
   }
 
+  // Готовый вектор из кэша (синхронно, без Ollama). null, если не проиндексирован.
+  getCached(path: string): Float32Array | null {
+    return this.map.get(path)?.vector ?? null;
+  }
+
   async load(): Promise<void> {
     try {
       if (await this.app.vault.adapter.exists(this.cachePath)) {

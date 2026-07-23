@@ -10,6 +10,7 @@ export interface BlockDeps {
   types: () => RelType[];
   connect: () => Promise<void>;
   changeType: (fromType: string, target: TFile) => Promise<void>;
+  rankMocs: (from: TFile, mocs: TFile[]) => TFile[];
 }
 
 // Рендер блока ```ties``` в теле заметки. Сам определяет MOC vs обычную.
@@ -55,7 +56,7 @@ export class TiesBlock extends MarkdownRenderChild {
         this.file,
         this.deps.mocPattern(),
         (path) => this.app.workspace.openLinkText(path, this.file.path, false),
-        true
+        { blockStyle: true, rankMocs: this.deps.rankMocs }
       );
     }
 

@@ -10,6 +10,7 @@ export interface ModalDeps {
   types: RelType[];
   connect: () => Promise<void>;
   changeType: (fromType: string, target: TFile) => Promise<void>;
+  rankMocs: (from: TFile, mocs: TFile[]) => TFile[];
 }
 
 export class ConnectionsModal extends Modal {
@@ -48,10 +49,17 @@ export class ConnectionsModal extends Modal {
     });
 
     if (!moc) {
-      renderMocButton(this.app, bar, this.file, this.deps.mocPattern, (path) => {
-        this.close();
-        this.app.workspace.openLinkText(path, "", false);
-      });
+      renderMocButton(
+        this.app,
+        bar,
+        this.file,
+        this.deps.mocPattern,
+        (path) => {
+          this.close();
+          this.app.workspace.openLinkText(path, "", false);
+        },
+        { rankMocs: this.deps.rankMocs }
+      );
     }
 
     const body = contentEl.createDiv({ cls: "zk-modal-body" });

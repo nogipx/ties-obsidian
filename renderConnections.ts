@@ -26,40 +26,63 @@ function hopWord(n: number): string {
   return `${n} хопов`;
 }
 
-// Кнопка «достижимые MOC» в хедере: показывает ближайший, по тапу — меню всех карт
-// (с дистанцией). Одна карта — сразу переход. blockStyle=true для блока (<a> вместо <button>).
+export interface MocButtonOpts {
+  blockStyle?: boolean;
+  // Переупорядочить достижимые MOC по семантической близости к заметке (лучший — первый).
+  // Если недоступно (нет эмбеддингов) — вернуть как есть (порядок по хопам).
+  rankMocs?: (from: TFile, mocs: TFile[]) => TFile[];
+}
+
+// Кнопки MOC в хедере: основная — сразу переход к семантически подходящему MOC;
+// вторая (если карт >1) — меню соседних MOC по близости (хопам).
 export function renderMocButton(
   app: App,
   parent: HTMLElement,
   file: TFile,
   pattern: string,
   onNavigate: (path: string) => void,
-  blockStyle = false
+  opts: MocButtonOpts = {}
 ): void {
-  const mocs = reachableMocs(app, file, pattern);
-  if (mocs.length === 0) return;
-  const nearest = mocs[0];
-  const btn = parent.createEl(blockStyle ? "a" : "button", {
-    text: `↑ ${nearest.file.basename}`,
-    cls: blockStyle ? "zk-block-moc" : "zk-moc-btn",
+  const reachable = reachableMocs(app, file, pattern);
+  if (reachable.length === 0) return;
+
+  const rankedFiles = opts.rankMocs
+    ? opts.rankMocs(file, reachable.map((m) => m.file))
+    : reachable.map((m) => m.file);
+  const best = rankedFiles[0];
+  const tag = opts.blockStyle ? "a" : "button";
+
+  const btn = parent.createEl(tag, {
+    text: `↑ ${best.basename}`,
+    cls: opts.blockStyle ? "zk-block-moc" : "zk-moc-btn",
   });
-  btn.setAttribute("aria-label", `достижимые MOC: ${mocs.length}`);
+  btn.setAttribute("aria-label", "подходящий MOC");
   btn.addEventListener("click", (e) => {
     e.preventDefault();
-    if (mocs.length === 1) {
-      onNavigate(nearest.file.path);
-      return;
-    }
-    const menu = new Menu();
-    for (const m of mocs) {
-      menu.addItem((item) => {
-        item.setTitle(m.hops === 1 ? m.file.basename : `${m.file.basename}  ·  ${hopWord(m.hops)}`);
-        if (m.hops === 1) item.setIcon("link"); // прямое членство/сосед
-        item.onClick(() => onNavigate(m.file.path));
-      });
-    }
-    menu.showAtMouseEvent(e as MouseEvent);
+    onNavigate(best.path);
   });
+
+  if (reachable.length > 1) {
+    const more = parent.createEl(tag, {
+      text: `карты (${reachable.length})`,
+      cls: opts.blockStyle ? "zk-block-moc-more" : "zk-moc-more",
+    });
+    more.setAttribute("aria-label", "соседние MOC");
+    more.addEventListener("click", (e) => {
+      e.preventDefault();
+      const menu = new Menu();
+      for (const m of reachable) {
+        menu.addItem((item) => {
+          item.setTitle(
+            m.hops === 1 ? m.file.basename : `${m.file.basename}  ·  ${hopWord(m.hops)}`
+          );
+          if (m.hops === 1) item.setIcon("link"); // прямое членство/сосед
+          item.onClick(() => onNavigate(m.file.path));
+        });
+      }
+      menu.showAtMouseEvent(e as MouseEvent);
+    });
+  }
 }
 
 // Рендер тела связей заметки: сам определяет MOC vs обычная и рисует соответственно.
