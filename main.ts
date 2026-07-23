@@ -14,7 +14,8 @@ import {
 import { addLink, removeLink } from "./linkStore";
 import { pickSimilar, pickType, ScoredFile } from "./pickers";
 import { promptText } from "./promptModal";
-import { DEFAULT_REL_TYPES, isSystemType, normalizeTypes, RelType } from "./types";
+import { DEFAULT_REL_TYPES, isSystemType, MOC_TYPE, RELATED_TYPE, normalizeTypes, RelType } from "./types";
+import { confirm } from "./confirmModal";
 import { TypesModal } from "./typesModal";
 import { embed, stripFrontmatter, cosine } from "./embeddings";
 import { EmbeddingIndex, mkdirp } from "./embIndex";
@@ -479,7 +480,7 @@ export default class TiesPlugin extends Plugin {
 
   // Сменить тип исходящей связи source -> target (удаляем старую, пишем новую).
   async changeLinkType(source: TFile, fromType: string, target: TFile): Promise<void> {
-    const all = this.settings.relationTypes.filter((t) => !isSystemType(t.name));
+    const all = this.settings.relationTypes.filter((t) => t.name !== MOC_TYPE);
     const cur = all.find((t) => t.name === fromType);
     const list = cur ? [cur, ...all.filter((t) => t.name !== fromType)] : all;
     const to = await pickType(this.app, list, `Новый тип → ${target.basename}`);
@@ -572,7 +573,7 @@ export default class TiesPlugin extends Plugin {
         return;
       }
 
-      const selectable = this.settings.relationTypes.filter((t) => !isSystemType(t.name));
+      const selectable = this.settings.relationTypes.filter((t) => t.name !== MOC_TYPE);
       const last = selectable.find((t) => t.name === this.lastType);
       const types = last
         ? [last, ...selectable.filter((t) => t.name !== this.lastType)]
@@ -693,27 +694,48 @@ class TiesSettingTab extends PluginSettingTab {
         if (val == null) return;
         const to = val.trim();
         if (!to || to === from) return;
-        if (to === "moc") {
+        if (to === MOC_TYPE) {
           new Notice("Нельзя переименовать в moc");
           return;
         }
-        const notice = new Notice("Миграция типа…", 0);
+        const mergingInto = this.plugin.settings.relationTypes.find(
+          (t, idx) => idx !== i && t.name === to
+        );
+        const notice = new Notice(mergingInto ? "Слияние типов…" : "Миграция типа…", 0);
         const n = await this.plugin.migrateType(from, to);
-        rt.name = to;
+        if (mergingInto) {
+          this.plugin.settings.relationTypes.splice(i, 1); // мерж: исходный тип убираем
+        } else {
+          rt.name = to;
+        }
         await this.plugin.saveSettings();
-        notice.setMessage(`Готово: обновлено заметок — ${n}`);
+        notice.setMessage(
+          mergingInto ? `Слито в «${to}», заметок: ${n}` : `Переименовано, заметок: ${n}`
+        );
         setTimeout(() => notice.hide(), 3000);
         this.display();
       });
 
       const del = row.createDiv({
         cls: "clickable-icon zk-type-del",
-        attr: { "aria-label": "удалить" },
+        attr: { "aria-label": "удалить (связи → related)" },
       });
       setIcon(del, "trash");
       del.addEventListener("click", async () => {
+        const from = rt.name;
+        const ok = await confirm(this.app, {
+          title: `Удалить тип «${from || "(без имени)"}»?`,
+          message: "Связи этого типа не пропадут — они будут перенесены в «related».",
+          cta: "Удалить и перенести",
+          danger: true,
+        });
+        if (!ok) return;
+        const notice = new Notice("Перенос связей…", 0);
+        const n = from ? await this.plugin.migrateType(from, RELATED_TYPE) : 0;
         this.plugin.settings.relationTypes.splice(i, 1);
         await this.plugin.saveSettings();
+        notice.setMessage(`Тип удалён, перенесено в related: ${n}`);
+        setTimeout(() => notice.hide(), 3000);
         this.display();
       });
     });

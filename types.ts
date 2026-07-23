@@ -3,13 +3,16 @@ export interface RelType {
   desc: string;
 }
 
-// Системный тип: завязан в логику MOC (isMoc, участники, авто-подстановка).
-// Его нельзя удалить/переименовать; он всегда присутствует.
+// Системные типы: всегда присутствуют, нельзя удалить/переименовать.
+//   moc     — членство в карте (авто-тип: скрыт из пикера, без смены типа);
+//   related — дефолтная цель при удалении/слиянии типов (обычный выбираемый тип).
 export const MOC_TYPE = "moc";
+export const RELATED_TYPE = "related";
 const MOC_DESC = "эта входит в карту (MOC) — членство";
+const RELATED_DESC = "просто связано, без направления";
 
 export function isSystemType(name: string): boolean {
-  return name === MOC_TYPE;
+  return name === MOC_TYPE || name === RELATED_TYPE;
 }
 
 // Читается как «эта заметка [тип] цель»
@@ -20,7 +23,7 @@ export const DEFAULT_REL_TYPES: RelType[] = [
   { name: "пример", desc: "эта — пример/иллюстрация цели" },
   { name: "контекст", desc: "цель — источник/фон этой мысли" },
   { name: MOC_TYPE, desc: MOC_DESC },
-  { name: "related", desc: "просто связано, без направления" },
+  { name: RELATED_TYPE, desc: RELATED_DESC },
 ];
 
 export function normalizeTypes(v: unknown): RelType[] {
@@ -36,7 +39,8 @@ export function normalizeTypes(v: unknown): RelType[] {
       if (name) out.push({ name, desc: String((item as any).desc ?? known.get(name) ?? "") });
     }
   }
-  // moc — системный тип, гарантируем его присутствие
+  // Системные типы гарантируем всегда
   if (!out.some((t) => t.name === MOC_TYPE)) out.push({ name: MOC_TYPE, desc: MOC_DESC });
+  if (!out.some((t) => t.name === RELATED_TYPE)) out.push({ name: RELATED_TYPE, desc: RELATED_DESC });
   return out.length ? out : DEFAULT_REL_TYPES.map((t) => ({ ...t }));
 }

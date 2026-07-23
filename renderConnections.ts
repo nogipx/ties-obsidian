@@ -6,7 +6,7 @@ import { removeLink } from "./linkStore";
 import { confirm } from "./confirmModal";
 import { promptText } from "./promptModal";
 import { getMemberWhy, setMemberWhy } from "./memberWhy";
-import { isSystemType } from "./types";
+import { MOC_TYPE } from "./types";
 
 export interface BodyOpts {
   includeBody: boolean;
@@ -130,7 +130,7 @@ function typedSection(
     for (const f of files) {
       const row = g.createDiv({ cls: "zk-row" });
       linkEl(row, f, opts);
-      if (editable && opts.changeType && !isSystemType(type)) {
+      if (editable && opts.changeType && type !== MOC_TYPE) {
         const ch = row.createEl("a", { text: "⇄", cls: "zk-change" });
         ch.setAttribute("aria-label", "сменить тип связи");
         ch.addEventListener("click", async (e) => {
