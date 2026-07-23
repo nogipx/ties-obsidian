@@ -35,8 +35,8 @@ export class ConnectionsModal extends Modal {
     contentEl.addClass("zk-modal");
 
     const moc = isMoc(this.app, this.file, this.deps.mocPattern);
+    this.titleEl.setText(this.file.basename); // нативный заголовок модалки (иначе пустая тёмная полоса)
     const header = contentEl.createDiv({ cls: "zk-modal-header" });
-    header.createEl("h3", { text: this.file.basename });
     const bar = header.createDiv({ cls: "zk-modal-bar" });
     const add = bar.createEl("button", {
       text: moc ? "＋ участник" : "＋ связать",

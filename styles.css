@@ -305,6 +305,7 @@
 .zk-modal-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 /* Кнопка «ближайший MOC» в хедере — прижата вправо, с обрезкой длинного имени */
