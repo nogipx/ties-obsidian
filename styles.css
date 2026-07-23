@@ -7,11 +7,28 @@
   margin-bottom: 16px;
 }
 .zk-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-muted);
   margin-bottom: 6px;
+}
+.zk-types-icon {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: normal;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.zk-types-icon:hover {
+  color: var(--text-accent);
 }
 .zk-group {
   margin-bottom: 8px;
@@ -295,8 +312,7 @@
 }
 .zk-modal-header {
   flex: 0 0 auto;
-  background: var(--background-primary);
-  padding: var(--size-4-4) var(--size-4-4) 10px;
+  padding: var(--size-4-2) var(--size-4-4) 10px;
   border-bottom: 1px solid var(--background-modifier-border);
 }
 .zk-modal-header h3 {
@@ -307,6 +323,11 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+/* На мобилке кнопки хедера компактнее — чтобы уместились в одну строку */
+.is-mobile .zk-modal-bar button {
+  padding: 4px 12px;
+  font-size: var(--font-ui-smaller);
 }
 /* Кнопка «ближайший MOC» в хедере — прижата вправо, с обрезкой длинного имени */
 .zk-moc-btn {

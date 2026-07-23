@@ -47,12 +47,6 @@ export class TiesBlock extends MarkdownRenderChild {
       await this.deps.connect();
       this.render();
     });
-    const info = actions.createEl("a", { text: "ⓘ", cls: "zk-block-info" });
-    info.setAttribute("aria-label", "типы связей");
-    info.addEventListener("click", (e) => {
-      e.preventDefault();
-      new TypesModal(this.app, this.deps.types()).open();
-    });
 
     const near = moc ? null : nearestMoc(this.app, this.file, this.deps.mocPattern());
     if (near) {
@@ -71,6 +65,7 @@ export class TiesBlock extends MarkdownRenderChild {
       editable: true,
       onChange: () => this.render(),
       changeType: this.deps.changeType,
+      onTypes: () => new TypesModal(this.app, this.deps.types()).open(),
       openLink: (path) => this.app.workspace.openLinkText(path, this.file.path, false),
     });
   }

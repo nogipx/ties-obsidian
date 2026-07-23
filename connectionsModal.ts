@@ -46,8 +46,6 @@ export class ConnectionsModal extends Modal {
       await this.deps.connect();
       this.render();
     });
-    const info = bar.createEl("button", { text: "ⓘ типы" });
-    info.addEventListener("click", () => new TypesModal(this.app, this.deps.types).open());
 
     const near = moc ? null : nearestMoc(this.app, this.file, this.deps.mocPattern);
     if (near) {
@@ -66,6 +64,7 @@ export class ConnectionsModal extends Modal {
       editable: true,
       onChange: () => this.render(),
       changeType: this.deps.changeType,
+      onTypes: () => new TypesModal(this.app, this.deps.types).open(),
       openLink: (path) => {
         this.close();
         this.app.workspace.openLinkText(path, "", false);

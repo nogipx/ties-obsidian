@@ -14,6 +14,7 @@ export interface BodyOpts {
   onChange: () => void; // вызвать после удаления (перерисовать)
   openLink: (path: string) => void;
   changeType?: (fromType: string, target: TFile) => Promise<void>; // сменить тип исходящей связи
+  onTypes?: () => void; // открыть справку по типам (иконка на строке первой секции)
 }
 
 // Рендер тела связей заметки: сам определяет MOC vs обычная и рисует соответственно.
@@ -45,6 +46,19 @@ export function renderConnectionsBody(
     );
   } else if (outgoing.size === 0 && incoming.size === 0) {
     el.createDiv({ text: "Связей пока нет.", cls: "zk-empty" });
+  }
+
+  // Иконка «типы» — справа на строке первой секции (вместо кнопки в хедере)
+  if (opts.onTypes) {
+    const title = el.querySelector<HTMLElement>(".zk-section-title");
+    if (title) {
+      const info = title.createEl("a", { text: "ⓘ типы", cls: "zk-types-icon" });
+      info.setAttribute("aria-label", "типы связей");
+      info.addEventListener("click", (e) => {
+        e.preventDefault();
+        opts.onTypes!();
+      });
+    }
   }
 }
 
