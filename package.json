@@ -1,6 +1,6 @@
 {
   "name": "ties-obsidian",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Ties — Obsidian plugin for typed, meaning-based connections between notes.",
   "main": "main.js",
   "type": "module",
