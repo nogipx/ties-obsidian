@@ -1,6 +1,6 @@
-import { App, TFile } from "obsidian";
+import { App, Menu, TFile } from "obsidian";
 import { computeConnections } from "./connectionsView";
-import { isMoc, directMembers, orbit } from "./moc";
+import { isMoc, directMembers, orbit, reachableMocs } from "./moc";
 import { removeLink } from "./linkStore";
 import { confirm } from "./confirmModal";
 import { promptText } from "./promptModal";
@@ -15,6 +15,51 @@ export interface BodyOpts {
   openLink: (path: string) => void;
   changeType?: (fromType: string, target: TFile) => Promise<void>; // сменить тип исходящей связи
   onTypes?: () => void; // открыть справку по типам (иконка на строке первой секции)
+}
+
+function hopWord(n: number): string {
+  const a = Math.abs(n) % 100;
+  const d = a % 10;
+  if (a > 10 && a < 20) return `${n} хопов`;
+  if (d === 1) return `${n} хоп`;
+  if (d >= 2 && d <= 4) return `${n} хопа`;
+  return `${n} хопов`;
+}
+
+// Кнопка «достижимые MOC» в хедере: показывает ближайший, по тапу — меню всех карт
+// (с дистанцией). Одна карта — сразу переход. blockStyle=true для блока (<a> вместо <button>).
+export function renderMocButton(
+  app: App,
+  parent: HTMLElement,
+  file: TFile,
+  pattern: string,
+  onNavigate: (path: string) => void,
+  blockStyle = false
+): void {
+  const mocs = reachableMocs(app, file, pattern);
+  if (mocs.length === 0) return;
+  const nearest = mocs[0];
+  const btn = parent.createEl(blockStyle ? "a" : "button", {
+    text: `↑ ${nearest.file.basename}`,
+    cls: blockStyle ? "zk-block-moc" : "zk-moc-btn",
+  });
+  btn.setAttribute("aria-label", `достижимые MOC: ${mocs.length}`);
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (mocs.length === 1) {
+      onNavigate(nearest.file.path);
+      return;
+    }
+    const menu = new Menu();
+    for (const m of mocs) {
+      menu.addItem((item) => {
+        item.setTitle(m.hops === 1 ? m.file.basename : `${m.file.basename}  ·  ${hopWord(m.hops)}`);
+        if (m.hops === 1) item.setIcon("link"); // прямое членство/сосед
+        item.onClick(() => onNavigate(m.file.path));
+      });
+    }
+    menu.showAtMouseEvent(e as MouseEvent);
+  });
 }
 
 // Рендер тела связей заметки: сам определяет MOC vs обычная и рисует соответственно.

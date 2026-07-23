@@ -1,6 +1,6 @@
 import { App, EventRef, Modal, TFile } from "obsidian";
-import { renderConnectionsBody } from "./renderConnections";
-import { isMoc, nearestMoc } from "./moc";
+import { renderConnectionsBody, renderMocButton } from "./renderConnections";
+import { isMoc } from "./moc";
 import { RelType } from "./types";
 import { TypesModal } from "./typesModal";
 
@@ -47,13 +47,10 @@ export class ConnectionsModal extends Modal {
       this.render();
     });
 
-    const near = moc ? null : nearestMoc(this.app, this.file, this.deps.mocPattern);
-    if (near) {
-      const mocBtn = bar.createEl("button", { text: `↑ ${near.basename}`, cls: "zk-moc-btn" });
-      mocBtn.setAttribute("aria-label", "ближайший MOC");
-      mocBtn.addEventListener("click", () => {
+    if (!moc) {
+      renderMocButton(this.app, bar, this.file, this.deps.mocPattern, (path) => {
         this.close();
-        this.app.workspace.openLinkText(near.path, "", false);
+        this.app.workspace.openLinkText(path, "", false);
       });
     }
 

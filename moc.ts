@@ -106,3 +106,37 @@ export function nearestMoc(app: App, file: TFile, pattern: string): TFile | null
   const path = pathToMoc(app, file, pattern);
   return path && path.length > 1 ? path[path.length - 1] : null;
 }
+
+// Все достижимые MOC из заметки, с дистанцией (кратчайшее число хопов).
+// Через MOC не разворачиваем (MOC — хаб, иначе достижимо стало бы «почти всё»).
+// Сортировка по (хопы, имя) — детерминированно.
+export function reachableMocs(
+  app: App,
+  file: TFile,
+  pattern: string,
+  maxHops = 4
+): Array<{ file: TFile; hops: number }> {
+  if (isMoc(app, file, pattern)) return [];
+  const dist = new Map<string, number>([[file.path, 0]]);
+  const found = new Map<string, { file: TFile; hops: number }>();
+  const queue: TFile[] = [file];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    const d = dist.get(cur.path)!;
+    if (d >= maxHops) continue;
+    for (const nbPath of neighbors(app, cur)) {
+      if (dist.has(nbPath)) continue;
+      dist.set(nbPath, d + 1);
+      const nb = app.vault.getAbstractFileByPath(nbPath);
+      if (!(nb instanceof TFile)) continue;
+      if (isMoc(app, nb, pattern)) {
+        found.set(nbPath, { file: nb, hops: d + 1 }); // записываем, но дальше не разворачиваем
+      } else {
+        queue.push(nb);
+      }
+    }
+  }
+  return [...found.values()].sort(
+    (a, b) => a.hops - b.hops || a.file.basename.localeCompare(b.file.basename)
+  );
+}
